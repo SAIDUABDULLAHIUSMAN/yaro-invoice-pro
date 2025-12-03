@@ -3,9 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Product, Invoice } from "@/types/invoice";
 import { Plus, Trash2, Receipt } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { productCatalog, getProductById, categories } from "@/data/products";
 
 interface InvoiceFormProps {
   onGenerateInvoice: (invoice: Invoice) => void;
@@ -34,13 +36,28 @@ export const InvoiceForm = ({ onGenerateInvoice }: InvoiceFormProps) => {
     }
   };
 
-  const updateProduct = (
-    id: string,
-    field: keyof Product,
-    value: string | number
-  ) => {
+  const handleProductSelect = (productId: string, catalogProductId: string) => {
+    const catalogProduct = getProductById(catalogProductId);
+    if (catalogProduct) {
+      setProducts(
+        products.map((p) =>
+          p.id === productId
+            ? { ...p, name: catalogProduct.name, price: catalogProduct.price }
+            : p
+        )
+      );
+    }
+  };
+
+  const updateQuantity = (id: string, quantity: number) => {
     setProducts(
-      products.map((p) => (p.id === id ? { ...p, [field]: value } : p))
+      products.map((p) => (p.id === id ? { ...p, quantity } : p))
+    );
+  };
+
+  const updateCustomPrice = (id: string, price: number) => {
+    setProducts(
+      products.map((p) => (p.id === id ? { ...p, price } : p))
     );
   };
 
@@ -112,6 +129,8 @@ export const InvoiceForm = ({ onGenerateInvoice }: InvoiceFormProps) => {
   };
 
   const { subtotal, tax, total } = calculateTotals();
+
+  const isCustomProduct = (productName: string) => productName === "Custom Product";
 
   return (
     <Card className="border-border/50 shadow-lg">
@@ -195,22 +214,49 @@ export const InvoiceForm = ({ onGenerateInvoice }: InvoiceFormProps) => {
             </div>
 
             <div className="space-y-3">
-              {products.map((product, index) => (
+              {products.map((product) => (
                 <div
                   key={product.id}
                   className="grid gap-3 p-3 rounded-lg bg-muted/50 md:grid-cols-[1fr_100px_100px_40px]"
                 >
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">
-                      Product Name
+                      Select Product
                     </Label>
-                    <Input
-                      value={product.name}
-                      onChange={(e) =>
-                        updateProduct(product.id, "name", e.target.value)
-                      }
-                      placeholder="Product name"
-                    />
+                    <Select
+                      onValueChange={(value) => handleProductSelect(product.id, value)}
+                    >
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="Choose a product">
+                          {product.name || "Choose a product"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover border border-border shadow-lg z-50">
+                        {categories.map((category) => (
+                          <div key={category}>
+                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">
+                              {category}
+                            </div>
+                            {productCatalog
+                              .filter((p) => p.category === category)
+                              .map((catalogProduct) => (
+                                <SelectItem
+                                  key={catalogProduct.id}
+                                  value={catalogProduct.id}
+                                  className="cursor-pointer"
+                                >
+                                  <div className="flex justify-between items-center w-full gap-4">
+                                    <span>{catalogProduct.name}</span>
+                                    <span className="text-muted-foreground text-xs">
+                                      ₦{catalogProduct.price.toLocaleString()}
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                          </div>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">
@@ -222,13 +268,11 @@ export const InvoiceForm = ({ onGenerateInvoice }: InvoiceFormProps) => {
                       step="0.01"
                       value={product.price || ""}
                       onChange={(e) =>
-                        updateProduct(
-                          product.id,
-                          "price",
-                          parseFloat(e.target.value) || 0
-                        )
+                        updateCustomPrice(product.id, parseFloat(e.target.value) || 0)
                       }
                       placeholder="0.00"
+                      disabled={!isCustomProduct(product.name)}
+                      className={!isCustomProduct(product.name) ? "bg-muted" : ""}
                     />
                   </div>
                   <div className="space-y-1">
@@ -238,11 +282,7 @@ export const InvoiceForm = ({ onGenerateInvoice }: InvoiceFormProps) => {
                       min="1"
                       value={product.quantity}
                       onChange={(e) =>
-                        updateProduct(
-                          product.id,
-                          "quantity",
-                          parseInt(e.target.value) || 1
-                        )
+                        updateQuantity(product.id, parseInt(e.target.value) || 1)
                       }
                     />
                   </div>

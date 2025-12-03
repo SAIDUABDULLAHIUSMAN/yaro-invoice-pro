@@ -5,10 +5,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { POSReceipt } from '@/components/POSReceipt';
 import { Invoice, Product } from '@/types/invoice';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { FileText, Printer, ArrowLeft, Trash2, History as HistoryIcon, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { printReceipt } from '@/utils/printReceipt';
 
 interface DBInvoice {
   id: string;
@@ -93,65 +94,9 @@ const History = () => {
 
   const handlePrint = () => {
     if (!receiptRef.current || !selectedInvoice) return;
-    const printContent = receiptRef.current.innerHTML;
-    const printWindow = window.open('', '', 'width=350,height=600');
-    if (printWindow) {
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>POS Receipt - ${selectedInvoice.id}</title>
-            <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-            <style>
-              @page { size: 80mm auto; margin: 0; }
-              * { margin: 0; padding: 0; box-sizing: border-box; }
-              html, body { width: 80mm; margin: 0; padding: 0; }
-              body { font-family: 'JetBrains Mono', monospace; background: white; }
-              .receipt-paper { font-family: 'JetBrains Mono', monospace; background: white; color: black; width: 80mm; max-width: 80mm; padding: 4mm 3mm; position: relative; page-break-inside: avoid; }
-              .receipt-paper::before, .receipt-paper::after { content: ''; position: absolute; left: 0; right: 0; height: 6px; background: repeating-linear-gradient(135deg, transparent, transparent 3px, #ddd 3px, #ddd 6px); }
-              .receipt-paper::before { top: 0; }
-              .receipt-paper::after { bottom: 0; }
-              .receipt-divider { border-top: 1px dashed #999; margin: 6px 0; }
-              .receipt-double-line { border-top: 1px solid black; border-bottom: 1px solid black; height: 3px; margin: 6px 0; }
-              .text-center { text-align: center; }
-              .text-right { text-align: right; }
-              .font-bold { font-weight: bold; }
-              .font-medium { font-weight: 500; }
-              .uppercase { text-transform: uppercase; }
-              .tracking-wide { letter-spacing: 0.025em; }
-              .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-              .flex { display: flex; }
-              .justify-between { justify-content: space-between; }
-              .justify-center { justify-content: center; }
-              .gap-\\[1px\\] { gap: 1px; }
-              .space-y-1 > * + * { margin-top: 3px; }
-              .space-y-2 > * + * { margin-top: 5px; }
-              .mb-1 { margin-bottom: 3px; }
-              .mb-2 { margin-bottom: 6px; }
-              .mt-1 { margin-top: 3px; }
-              .mt-3 { margin-top: 8px; }
-              .ml-2 { margin-left: 6px; }
-              .pr-2 { padding-right: 6px; }
-              .text-lg { font-size: 14px; line-height: 18px; }
-              .text-sm { font-size: 11px; line-height: 14px; }
-              .text-\\[10px\\] { font-size: 9px; line-height: 12px; }
-              .text-\\[9px\\] { font-size: 8px; line-height: 10px; }
-              .text-\\[8px\\] { font-size: 7px; line-height: 9px; }
-              .opacity-70 { opacity: 0.7; }
-              .flex-1 { flex: 1; }
-              .w-8 { width: 24px; }
-              .w-16 { width: 48px; }
-              .max-w-\\[120px\\] { max-width: 90px; }
-              .bg-black { background: black; }
-              @media print { html, body { width: 80mm; background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .receipt-paper { box-shadow: none; margin: 0; width: 80mm; max-width: 80mm; } }
-            </style>
-          </head>
-          <body>${printContent}</body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
+    const success = printReceipt(receiptRef.current.innerHTML, selectedInvoice.id);
+    if (!success) {
+      toast.error("Unable to print. Please allow popups for this site.");
     }
   };
 
