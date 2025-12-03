@@ -21,12 +21,19 @@ const Index = () => {
               <title>POS Receipt - ${invoice?.id}</title>
               <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
               <style>
+                @page {
+                  size: 80mm auto;
+                  margin: 0;
+                }
                 * { margin: 0; padding: 0; box-sizing: border-box; }
+                html, body { 
+                  width: 80mm;
+                  margin: 0;
+                  padding: 0;
+                }
                 body { 
                   font-family: 'JetBrains Mono', monospace;
                   background: white;
-                  display: flex;
-                  justify-content: center;
                   padding: 0;
                 }
                 .receipt-paper {
@@ -34,8 +41,10 @@ const Index = () => {
                   background: white;
                   color: black;
                   width: 80mm;
-                  padding: 8mm 4mm;
+                  max-width: 80mm;
+                  padding: 4mm 3mm;
                   position: relative;
+                  page-break-inside: avoid;
                 }
                 .receipt-paper::before,
                 .receipt-paper::after {
@@ -43,61 +52,71 @@ const Index = () => {
                   position: absolute;
                   left: 0;
                   right: 0;
-                  height: 8px;
+                  height: 6px;
                   background: repeating-linear-gradient(
                     135deg,
                     transparent,
-                    transparent 4px,
-                    #ddd 4px,
-                    #ddd 8px
+                    transparent 3px,
+                    #ddd 3px,
+                    #ddd 6px
                   );
                 }
                 .receipt-paper::before { top: 0; }
                 .receipt-paper::after { bottom: 0; }
                 .receipt-divider {
-                  border-top: 1px dashed #ccc;
-                  margin: 8px 0;
+                  border-top: 1px dashed #999;
+                  margin: 6px 0;
                 }
                 .receipt-double-line {
                   border-top: 1px solid black;
                   border-bottom: 1px solid black;
-                  height: 4px;
-                  margin: 8px 0;
+                  height: 3px;
+                  margin: 6px 0;
                 }
                 .text-center { text-align: center; }
                 .text-right { text-align: right; }
                 .font-bold { font-weight: bold; }
                 .font-medium { font-weight: 500; }
                 .uppercase { text-transform: uppercase; }
-                .tracking-wide { letter-spacing: 0.05em; }
+                .tracking-wide { letter-spacing: 0.025em; }
                 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
                 .flex { display: flex; }
                 .justify-between { justify-content: space-between; }
                 .justify-center { justify-content: center; }
                 .items-center { align-items: center; }
                 .gap-\\[1px\\] { gap: 1px; }
-                .space-y-1 > * + * { margin-top: 4px; }
-                .space-y-2 > * + * { margin-top: 8px; }
-                .mb-1 { margin-bottom: 4px; }
-                .mb-2 { margin-bottom: 8px; }
-                .mt-1 { margin-top: 4px; }
-                .mt-3 { margin-top: 12px; }
-                .ml-2 { margin-left: 8px; }
-                .pr-2 { padding-right: 8px; }
-                .text-lg { font-size: 18px; line-height: 28px; }
-                .text-sm { font-size: 14px; line-height: 20px; }
-                .text-\\[10px\\] { font-size: 10px; line-height: 14px; }
-                .text-\\[9px\\] { font-size: 9px; line-height: 12px; }
-                .text-\\[8px\\] { font-size: 8px; line-height: 10px; }
+                .space-y-1 > * + * { margin-top: 3px; }
+                .space-y-2 > * + * { margin-top: 5px; }
+                .mb-1 { margin-bottom: 3px; }
+                .mb-2 { margin-bottom: 6px; }
+                .mt-1 { margin-top: 3px; }
+                .mt-3 { margin-top: 8px; }
+                .ml-2 { margin-left: 6px; }
+                .pr-2 { padding-right: 6px; }
+                .text-lg { font-size: 14px; line-height: 18px; }
+                .text-sm { font-size: 11px; line-height: 14px; }
+                .text-\\[10px\\] { font-size: 9px; line-height: 12px; }
+                .text-\\[9px\\] { font-size: 8px; line-height: 10px; }
+                .text-\\[8px\\] { font-size: 7px; line-height: 9px; }
                 .opacity-70 { opacity: 0.7; }
                 .flex-1 { flex: 1; }
-                .w-8 { width: 32px; }
-                .w-16 { width: 64px; }
-                .max-w-\\[120px\\] { max-width: 120px; }
+                .w-8 { width: 24px; }
+                .w-16 { width: 48px; }
+                .max-w-\\[120px\\] { max-width: 90px; }
                 .bg-black { background: black; }
                 @media print {
-                  body { background: white; }
-                  .receipt-paper { box-shadow: none; margin: 0; }
+                  html, body { 
+                    width: 80mm;
+                    background: white !important;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                  }
+                  .receipt-paper { 
+                    box-shadow: none; 
+                    margin: 0; 
+                    width: 80mm;
+                    max-width: 80mm;
+                  }
                 }
               </style>
             </head>
