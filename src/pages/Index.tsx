@@ -89,7 +89,7 @@ const Index = () => {
                 <FileText className="h-5 w-5 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-xl font-bold">YAROTECH Invoice Pro</h1>
+                <h1 className="text-xl font-bold">PURE TRUST TPS</h1>
                 <p className="text-xs text-muted-foreground">POS Receipt System</p>
               </div>
             </div>
