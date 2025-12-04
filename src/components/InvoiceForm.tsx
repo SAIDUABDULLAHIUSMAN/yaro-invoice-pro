@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,14 +7,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Product, Invoice } from "@/types/invoice";
 import { Plus, Trash2, Receipt } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { productCatalog, getProductById, categories } from "@/data/products";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface InvoiceFormProps {
   onGenerateInvoice: (invoice: Invoice) => void;
 }
 
+interface CatalogProduct {
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+}
+
 export const InvoiceForm = ({ onGenerateInvoice }: InvoiceFormProps) => {
-  const [companyName, setCompanyName] = useState("YAROTECH Network Ltd");
+  const { user } = useAuth();
+  const [companyName, setCompanyName] = useState("PURE TRUST TPS");
   const [companyAddress, setCompanyAddress] = useState("Lagos, Nigeria");
   const [companyPhone, setCompanyPhone] = useState("+234 800 000 0000");
   const [customerName, setCustomerName] = useState("");
@@ -22,6 +31,27 @@ export const InvoiceForm = ({ onGenerateInvoice }: InvoiceFormProps) => {
   const [products, setProducts] = useState<Product[]>([
     { id: "1", name: "", price: 0, quantity: 1 },
   ]);
+  const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (user) {
+      fetchProducts();
+    }
+  }, [user]);
+
+  const fetchProducts = async () => {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .order('name');
+    
+    if (!error && data) {
+      setCatalogProducts(data);
+      const uniqueCategories = [...new Set(data.map(p => p.category))];
+      setCategories(uniqueCategories.length > 0 ? uniqueCategories : ["Other"]);
+    }
+  };
 
   const addProduct = () => {
     setProducts([
@@ -37,7 +67,18 @@ export const InvoiceForm = ({ onGenerateInvoice }: InvoiceFormProps) => {
   };
 
   const handleProductSelect = (productId: string, catalogProductId: string) => {
-    const catalogProduct = getProductById(catalogProductId);
+    if (catalogProductId === "custom") {
+      setProducts(
+        products.map((p) =>
+          p.id === productId
+            ? { ...p, name: "Custom Product", price: 0 }
+            : p
+        )
+      );
+      return;
+    }
+    
+    const catalogProduct = catalogProducts.find(p => p.id === catalogProductId);
     if (catalogProduct) {
       setProducts(
         products.map((p) =>
@@ -232,29 +273,40 @@ export const InvoiceForm = ({ onGenerateInvoice }: InvoiceFormProps) => {
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent className="bg-popover border border-border shadow-lg z-50">
-                        {categories.map((category) => (
-                          <div key={category}>
-                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">
-                              {category}
-                            </div>
-                            {productCatalog
-                              .filter((p) => p.category === category)
-                              .map((catalogProduct) => (
-                                <SelectItem
-                                  key={catalogProduct.id}
-                                  value={catalogProduct.id}
-                                  className="cursor-pointer"
-                                >
-                                  <div className="flex justify-between items-center w-full gap-4">
-                                    <span>{catalogProduct.name}</span>
-                                    <span className="text-muted-foreground text-xs">
-                                      ₦{catalogProduct.price.toLocaleString()}
-                                    </span>
-                                  </div>
-                                </SelectItem>
-                              ))}
+                        {catalogProducts.length === 0 ? (
+                          <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                            No products yet. Add products in the Products page.
                           </div>
-                        ))}
+                        ) : (
+                          categories.map((category) => (
+                            <div key={category}>
+                              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">
+                                {category}
+                              </div>
+                              {catalogProducts
+                                .filter((p) => p.category === category)
+                                .map((catalogProduct) => (
+                                  <SelectItem
+                                    key={catalogProduct.id}
+                                    value={catalogProduct.id}
+                                    className="cursor-pointer"
+                                  >
+                                    <div className="flex justify-between items-center w-full gap-4">
+                                      <span>{catalogProduct.name}</span>
+                                      <span className="text-muted-foreground text-xs">
+                                        ₦{catalogProduct.price.toLocaleString()}
+                                      </span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                            </div>
+                          ))
+                        )}
+                        <div className="border-t border-border mt-1 pt-1">
+                          <SelectItem value="custom" className="cursor-pointer">
+                            <span className="text-primary">+ Custom Product</span>
+                          </SelectItem>
+                        </div>
                       </SelectContent>
                     </Select>
                   </div>

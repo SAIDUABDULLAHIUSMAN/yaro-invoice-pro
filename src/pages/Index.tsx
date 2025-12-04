@@ -4,7 +4,7 @@ import { InvoiceForm } from "@/components/InvoiceForm";
 import { POSReceipt } from "@/components/POSReceipt";
 import { Invoice } from "@/types/invoice";
 import { Button } from "@/components/ui/button";
-import { Printer, X, FileText, History, LogOut, Loader2 } from "lucide-react";
+import { Printer, X, FileText, History, LogOut, Loader2, Package } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -94,6 +94,10 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => navigate('/products')} className="gap-2">
+                <Package className="h-4 w-4" />
+                Products
+              </Button>
               <Button variant="outline" size="sm" onClick={() => navigate('/history')} className="gap-2">
                 <History className="h-4 w-4" />
                 History
