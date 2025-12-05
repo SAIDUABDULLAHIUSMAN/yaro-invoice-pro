@@ -18,6 +18,7 @@ interface Product {
   name: string;
   price: number;
   category: string;
+  stock: number;
 }
 
 const Products = () => {
@@ -30,6 +31,7 @@ const Products = () => {
   // Form state
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
+  const [stock, setStock] = useState("");
   const [category, setCategory] = useState("Other");
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -62,6 +64,7 @@ const Products = () => {
   const resetForm = () => {
     setName("");
     setPrice("");
+    setStock("");
     setCategory("Other");
     setEditingId(null);
   };
@@ -79,7 +82,7 @@ const Products = () => {
       // Update
       const { error } = await supabase
         .from('products')
-        .update({ name: name.trim(), price: parseFloat(price), category })
+        .update({ name: name.trim(), price: parseFloat(price), stock: parseInt(stock) || 0, category })
         .eq('id', editingId);
 
       if (error) {
@@ -96,7 +99,8 @@ const Products = () => {
         .insert({ 
           user_id: user!.id, 
           name: name.trim(), 
-          price: parseFloat(price), 
+          price: parseFloat(price),
+          stock: parseInt(stock) || 0,
           category 
         });
 
@@ -114,6 +118,7 @@ const Products = () => {
   const handleEdit = (product: Product) => {
     setName(product.name);
     setPrice(product.price.toString());
+    setStock(product.stock.toString());
     setCategory(product.category);
     setEditingId(product.id);
   };
