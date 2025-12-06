@@ -21,15 +21,24 @@ const CreateSale = () => {
     if (user) {
       setSaving(true);
       
-      // Deduct stock for each product
+      // Deduct stock for each product using direct SQL call
       for (const product of newInvoice.products) {
         if (product.id !== 'custom') {
-          await supabase.rpc('decrement_stock', { 
-            product_id: product.id, 
-            qty: product.quantity 
-          }).then(({ error }) => {
-            if (error) console.error('Stock deduction error:', error);
-          });
+          const { data: currentProduct } = await supabase
+            .from('products')
+            .select('stock')
+            .eq('id', product.id)
+            .single();
+          
+          if (currentProduct) {
+            await supabase
+              .from('products')
+              .update({ stock: Math.max((currentProduct.stock || 0) - product.quantity, 0) })
+              .eq('id', product.id)
+              .then(({ error }) => {
+              if (error) console.error('Stock deduction error:', error);
+            });
+          }
         }
       }
 

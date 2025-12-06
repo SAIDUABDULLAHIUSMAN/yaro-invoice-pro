@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileText, ArrowLeft, Plus, Pencil, Trash2, Loader2, Save, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Pencil, Trash2, Loader2, Save, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -22,8 +22,7 @@ interface Product {
 }
 
 const Products = () => {
-  const { user, loading } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -31,15 +30,9 @@ const Products = () => {
   // Form state
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
-  const [stock, setStock] = useState("");
+  const [stock, setStock] = useState("0");
   const [category, setCategory] = useState("Other");
   const [editingId, setEditingId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate('/auth');
-    }
-  }, [user, loading, navigate]);
 
   useEffect(() => {
     if (user) {
@@ -64,7 +57,7 @@ const Products = () => {
   const resetForm = () => {
     setName("");
     setPrice("");
-    setStock("");
+    setStock("0");
     setCategory("Other");
     setEditingId(null);
   };
@@ -79,7 +72,6 @@ const Products = () => {
     setSaving(true);
 
     if (editingId) {
-      // Update
       const { error } = await supabase
         .from('products')
         .update({ name: name.trim(), price: parseFloat(price), stock: parseInt(stock) || 0, category })
@@ -93,7 +85,6 @@ const Products = () => {
         resetForm();
       }
     } else {
-      // Create
       const { error } = await supabase
         .from('products')
         .insert({ 
@@ -118,7 +109,7 @@ const Products = () => {
   const handleEdit = (product: Product) => {
     setName(product.name);
     setPrice(product.price.toString());
-    setStock(product.stock.toString());
+    setStock(product.stock?.toString() || "0");
     setCategory(product.category);
     setEditingId(product.id);
   };
@@ -133,57 +124,40 @@ const Products = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  const getStockBadge = (stock: number) => {
+    if (stock === 0) return <Badge variant="destructive">Out of stock</Badge>;
+    if (stock < 10) return <Badge variant="secondary" className="bg-amber-500/20 text-amber-600">Low: {stock}</Badge>;
+    return <Badge variant="secondary" className="bg-emerald-500/20 text-emerald-600">{stock}</Badge>;
+  };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
-                <FileText className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold">Product Catalog</h1>
-                <p className="text-xs text-muted-foreground">Manage your products</p>
-              </div>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => navigate('/')} className="gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
-          </div>
-        </div>
-      </header>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Product Catalog</h1>
+        <p className="text-muted-foreground">Manage your products and inventory</p>
+      </div>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="grid gap-8 lg:grid-cols-[350px_1fr]">
-          {/* Add/Edit Form */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                {editingId ? <Pencil className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-                {editingId ? 'Edit Product' : 'Add Product'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Product Name</Label>
-                  <Input
-                    id="name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Enter product name"
-                  />
-                </div>
+      <div className="grid gap-6 lg:grid-cols-[350px_1fr]">
+        {/* Add/Edit Form */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {editingId ? <Pencil className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+              {editingId ? 'Edit Product' : 'Add Product'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Product Name</Label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter product name"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="price">Price (₦)</Label>
                   <Input
@@ -197,80 +171,93 @@ const Products = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Select value={category} onValueChange={setCategory}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover border border-border z-50">
-                      {categories.map((cat) => (
-                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="stock">Stock Qty</Label>
+                  <Input
+                    id="stock"
+                    type="number"
+                    min="0"
+                    value={stock}
+                    onChange={(e) => setStock(e.target.value)}
+                    placeholder="0"
+                  />
                 </div>
-                <div className="flex gap-2">
-                  <Button type="submit" className="flex-1 gap-2" disabled={saving}>
-                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                    {editingId ? 'Update' : 'Add'}
-                  </Button>
-                  {editingId && (
-                    <Button type="button" variant="outline" onClick={resetForm}>
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-
-          {/* Products List */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Products ({products.length})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loadingProducts ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : products.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">No products yet. Add your first product!</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead className="text-right">Price</TableHead>
-                      <TableHead className="w-[100px]">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {products.map((product) => (
-                      <TableRow key={product.id}>
-                        <TableCell className="font-medium">{product.name}</TableCell>
-                        <TableCell>{product.category}</TableCell>
-                        <TableCell className="text-right">₦{product.price.toLocaleString()}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button size="icon" variant="ghost" onClick={() => handleEdit(product)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button size="icon" variant="ghost" onClick={() => handleDelete(product.id)}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover border border-border z-50">
+                    {categories.map((cat) => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                     ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </main>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2">
+                <Button type="submit" className="flex-1 gap-2" disabled={saving}>
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {editingId ? 'Update' : 'Add'}
+                </Button>
+                {editingId && (
+                  <Button type="button" variant="outline" onClick={resetForm}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Products List */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Products ({products.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingProducts ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : products.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">No products yet. Add your first product!</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead className="text-center">Stock</TableHead>
+                    <TableHead className="text-right">Price</TableHead>
+                    <TableHead className="w-[100px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {products.map((product) => (
+                    <TableRow key={product.id}>
+                      <TableCell className="font-medium">{product.name}</TableCell>
+                      <TableCell>{product.category}</TableCell>
+                      <TableCell className="text-center">{getStockBadge(product.stock || 0)}</TableCell>
+                      <TableCell className="text-right">₦{product.price.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button size="icon" variant="ghost" onClick={() => handleEdit(product)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" onClick={() => handleDelete(product.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
