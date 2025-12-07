@@ -2,10 +2,14 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ClipboardList, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ClipboardList, Loader2, Download, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface AuditEntry {
   id: string;
@@ -14,27 +18,40 @@ interface AuditEntry {
   customer_name: string;
   issuer_name: string;
   total: number;
-  products: { name: string; quantity: number }[];
+  products: { name: string; quantity: number; price: number }[];
 }
 
 const Audits = () => {
   const { user } = useAuth();
   const [audits, setAudits] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fromDate, setFromDate] = useState<Date | undefined>();
+  const [toDate, setToDate] = useState<Date | undefined>();
 
   useEffect(() => {
     if (user) {
       fetchAudits();
     }
-  }, [user]);
+  }, [user, fromDate, toDate]);
 
   const fetchAudits = async () => {
-    const { data, error } = await supabase
+    setLoading(true);
+    let query = supabase
       .from("invoices")
       .select("*")
       .eq("user_id", user!.id)
-      .order("created_at", { ascending: false })
-      .limit(50);
+      .order("created_at", { ascending: false });
+
+    if (fromDate) {
+      query = query.gte("created_at", format(fromDate, "yyyy-MM-dd"));
+    }
+    if (toDate) {
+      const endOfDay = new Date(toDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      query = query.lte("created_at", endOfDay.toISOString());
+    }
+
+    const { data, error } = await query.limit(500);
 
     if (!error && data) {
       setAudits(data.map((inv) => ({
@@ -44,10 +61,49 @@ const Audits = () => {
         customer_name: inv.customer_name,
         issuer_name: inv.issuer_name,
         total: Number(inv.total),
-        products: (inv.products as { name: string; quantity: number }[]) || [],
+        products: (inv.products as { name: string; quantity: number; price: number }[]) || [],
       })));
     }
     setLoading(false);
+  };
+
+  const downloadCSV = () => {
+    if (audits.length === 0) return;
+
+    const headers = ["Date", "Invoice #", "Customer", "Issued By", "Items", "Products Detail", "Total (₦)"];
+    const rows = audits.map((audit) => [
+      format(new Date(audit.created_at), "dd/MM/yyyy HH:mm"),
+      audit.invoice_number,
+      audit.customer_name,
+      audit.issuer_name,
+      audit.products.reduce((sum, p) => sum + p.quantity, 0),
+      audit.products.map(p => `${p.name} x${p.quantity}`).join("; "),
+      audit.total.toLocaleString()
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    
+    const dateRange = fromDate && toDate 
+      ? `_${format(fromDate, "yyyyMMdd")}-${format(toDate, "yyyyMMdd")}`
+      : fromDate 
+        ? `_from_${format(fromDate, "yyyyMMdd")}`
+        : toDate 
+          ? `_to_${format(toDate, "yyyyMMdd")}`
+          : "";
+    
+    link.setAttribute("href", url);
+    link.setAttribute("download", `transaction_history${dateRange}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -59,10 +115,48 @@ const Audits = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ClipboardList className="h-5 w-5" />
-            Recent Transactions
-          </CardTitle>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <CardTitle className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5" />
+              Recent Transactions
+            </CardTitle>
+            <div className="flex flex-wrap items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn("justify-start text-left font-normal", !fromDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {fromDate ? format(fromDate, "dd/MM/yyyy") : "From Date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={fromDate} onSelect={setFromDate} initialFocus />
+                </PopoverContent>
+              </Popover>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn("justify-start text-left font-normal", !toDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {toDate ? format(toDate, "dd/MM/yyyy") : "To Date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={toDate} onSelect={setToDate} initialFocus />
+                </PopoverContent>
+              </Popover>
+
+              {(fromDate || toDate) && (
+                <Button variant="ghost" size="sm" onClick={() => { setFromDate(undefined); setToDate(undefined); }}>
+                  Clear
+                </Button>
+              )}
+
+              <Button size="sm" onClick={downloadCSV} disabled={audits.length === 0}>
+                <Download className="mr-2 h-4 w-4" />
+                Download CSV
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -70,7 +164,7 @@ const Audits = () => {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : audits.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">No transactions yet</p>
+            <p className="text-center text-muted-foreground py-8">No transactions found</p>
           ) : (
             <Table>
               <TableHeader>
