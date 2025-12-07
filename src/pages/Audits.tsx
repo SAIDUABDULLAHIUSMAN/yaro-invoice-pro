@@ -178,7 +178,7 @@ const Audits = () => {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={fromDate} onSelect={setFromDate} initialFocus />
+                  <Calendar mode="single" selected={fromDate} onSelect={setFromDate} initialFocus className="pointer-events-auto" />
                 </PopoverContent>
               </Popover>
 
@@ -190,7 +190,7 @@ const Audits = () => {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={toDate} onSelect={setToDate} initialFocus />
+                  <Calendar mode="single" selected={toDate} onSelect={setToDate} initialFocus className="pointer-events-auto" />
                 </PopoverContent>
               </Popover>
 
