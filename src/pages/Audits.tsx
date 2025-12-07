@@ -5,7 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ClipboardList, Loader2, Download, CalendarIcon } from "lucide-react";
+import { ClipboardList, Loader2, Download, CalendarIcon, FileText } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
@@ -106,6 +108,53 @@ const Audits = () => {
     document.body.removeChild(link);
   };
 
+  const downloadPDF = () => {
+    if (audits.length === 0) return;
+
+    const doc = new jsPDF();
+    
+    const dateRange = fromDate && toDate 
+      ? `${format(fromDate, "dd/MM/yyyy")} - ${format(toDate, "dd/MM/yyyy")}`
+      : fromDate 
+        ? `From ${format(fromDate, "dd/MM/yyyy")}`
+        : toDate 
+          ? `To ${format(toDate, "dd/MM/yyyy")}`
+          : "All Time";
+
+    doc.setFontSize(18);
+    doc.text("Transaction History", 14, 22);
+    doc.setFontSize(11);
+    doc.text(`Period: ${dateRange}`, 14, 30);
+    doc.text(`Generated: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 36);
+
+    const tableData = audits.map((audit) => [
+      format(new Date(audit.created_at), "dd/MM/yyyy HH:mm"),
+      audit.invoice_number,
+      audit.customer_name,
+      audit.issuer_name,
+      audit.products.reduce((sum, p) => sum + p.quantity, 0).toString(),
+      `₦${audit.total.toLocaleString()}`
+    ]);
+
+    autoTable(doc, {
+      head: [["Date", "Invoice #", "Customer", "Issued By", "Items", "Total"]],
+      body: tableData,
+      startY: 42,
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [41, 128, 185] },
+    });
+
+    const filenameDateRange = fromDate && toDate 
+      ? `_${format(fromDate, "yyyyMMdd")}-${format(toDate, "yyyyMMdd")}`
+      : fromDate 
+        ? `_from_${format(fromDate, "yyyyMMdd")}`
+        : toDate 
+          ? `_to_${format(toDate, "yyyyMMdd")}`
+          : "";
+    
+    doc.save(`transaction_history${filenameDateRange}.pdf`);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -151,9 +200,13 @@ const Audits = () => {
                 </Button>
               )}
 
-              <Button size="sm" onClick={downloadCSV} disabled={audits.length === 0}>
+              <Button size="sm" variant="outline" onClick={downloadCSV} disabled={audits.length === 0}>
                 <Download className="mr-2 h-4 w-4" />
-                Download CSV
+                CSV
+              </Button>
+              <Button size="sm" onClick={downloadPDF} disabled={audits.length === 0}>
+                <FileText className="mr-2 h-4 w-4" />
+                PDF
               </Button>
             </div>
           </div>
