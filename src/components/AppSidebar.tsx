@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, ShoppingCart, Package, History, Settings, ClipboardList, LogOut } from "lucide-react";
+import { LayoutDashboard, ShoppingCart, Package, History, Settings, ClipboardList, LogOut, BarChart3 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Sidebar,
@@ -22,6 +22,7 @@ const menuItems = [
   { title: "Products", url: "/products", icon: Package },
   { title: "History", url: "/history", icon: History },
   { title: "Audits", url: "/audits", icon: ClipboardList },
+  { title: "Analysis", url: "/analysis", icon: BarChart3 },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
