@@ -1,73 +1,231 @@
-# Welcome to your Lovable project
+# YAROTECH Invoice Pro - POS Receipt System
 
-## Project info
+A Progressive Web App (PWA) for creating POS receipts, managing products, tracking inventory, and analyzing sales trends.
 
-**URL**: https://lovable.dev/projects/4e5497c5-b7fc-43f2-94e2-dbc85745be25
+## Features
 
-## How can I edit this code?
+- 🧾 POS Receipt Generation (80mm thermal paper optimized)
+- 📦 Product & Inventory Management
+- 📊 Sales Analytics (Weekly/Monthly trends)
+- 📁 Transaction History with CSV/PDF Export
+- 🔐 User Authentication
+- 📱 PWA with Offline Support
 
-There are several ways of editing your application.
+---
 
-**Use Lovable**
+## 🚀 cPanel Deployment Guide
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/4e5497c5-b7fc-43f2-94e2-dbc85745be25) and start prompting.
+### Prerequisites
 
-Changes made via Lovable will be committed automatically to this repo.
+- Node.js 18+ installed on your local machine
+- Access to cPanel hosting with File Manager
+- Domain or subdomain configured
 
-**Use your preferred IDE**
+### Step 1: Build the Project Locally
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
+```bash
+# Clone the repository
 git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
 cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Install dependencies
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+# Build for production
+npm run build
 ```
 
-**Edit a file directly in GitHub**
+This creates a `dist` folder containing all the production files.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Step 2: Prepare Environment Variables
 
-**Use GitHub Codespaces**
+Before building, ensure your `.env` file contains the correct Supabase credentials:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
+VITE_SUPABASE_PROJECT_ID=your-project-id
+```
 
-## What technologies are used for this project?
+### Step 3: Upload to cPanel
 
-This project is built with:
+1. **Login to cPanel** and open **File Manager**
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+2. **Navigate to your domain's root folder:**
+   - For main domain: `public_html/`
+   - For subdomain: `public_html/subdomain/` or the subdomain's document root
 
-## How can I deploy this project?
+3. **Delete existing files** (if any) except `.htaccess` if you have custom rules
 
-Simply open [Lovable](https://lovable.dev/projects/4e5497c5-b7fc-43f2-94e2-dbc85745be25) and click on Share -> Publish.
+4. **Upload the `dist` folder contents:**
+   - Click **Upload** in File Manager
+   - Select ALL files and folders from your local `dist/` folder
+   - Upload them directly to the document root (not inside a subfolder)
 
-## Can I connect a custom domain to my Lovable project?
+5. **Verify the structure** should look like:
+   ```
+   public_html/
+   ├── .htaccess          (for SPA routing - included in build)
+   ├── index.html
+   ├── favicon.ico
+   ├── robots.txt
+   ├── assets/
+   │   ├── index-xxxxx.js
+   │   ├── index-xxxxx.css
+   │   └── ...
+   └── ...
+   ```
 
-Yes, you can!
+### Step 4: Configure .htaccess for SPA Routing
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+The `.htaccess` file is automatically included in the build. If it's missing, create it in `public_html/` with this content:
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+```apache
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  
+  # Handle Authorization Header
+  RewriteCond %{HTTP:Authorization} .
+  RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+  
+  # Redirect Trailing Slashes If Not A Folder
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_URI} (.+)/$
+  RewriteRule ^ %1 [L,R=301]
+  
+  # Handle Front Controller - Routes all requests to index.html
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Enable Gzip compression
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/plain
+  AddOutputFilterByType DEFLATE text/html
+  AddOutputFilterByType DEFLATE text/xml
+  AddOutputFilterByType DEFLATE text/css
+  AddOutputFilterByType DEFLATE application/xml
+  AddOutputFilterByType DEFLATE application/xhtml+xml
+  AddOutputFilterByType DEFLATE application/rss+xml
+  AddOutputFilterByType DEFLATE application/javascript
+  AddOutputFilterByType DEFLATE application/x-javascript
+</IfModule>
+
+# Cache static assets
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/jpg "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/gif "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType text/css "access plus 1 month"
+  ExpiresByType application/javascript "access plus 1 month"
+  ExpiresByType image/x-icon "access plus 1 year"
+</IfModule>
+```
+
+### Step 5: Subdirectory Deployment (Optional)
+
+If deploying to a subdirectory (e.g., `yourdomain.com/app/`), update `vite.config.ts` before building:
+
+```typescript
+export default defineConfig({
+  base: '/app/', // Add this line with your subdirectory name
+  // ... rest of config
+});
+```
+
+Then rebuild and upload.
+
+### Step 6: SSL Configuration
+
+1. In cPanel, go to **SSL/TLS** or **Let's Encrypt SSL**
+2. Install a free SSL certificate for your domain
+3. Enable **Force HTTPS Redirect** in cPanel or add to `.htaccess`:
+
+```apache
+# Force HTTPS (add at the top of .htaccess)
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+```
+
+---
+
+## 🔧 Troubleshooting
+
+### Blank Page or 404 Errors
+- Ensure `.htaccess` is properly uploaded and has correct permissions (644)
+- Check if `mod_rewrite` is enabled on your hosting
+
+### API Connection Issues
+- Verify Supabase URL and anon key are correct in the build
+- Check CORS settings in your Supabase project
+- Ensure your domain is added to Supabase allowed origins
+
+### PWA Not Working
+- SSL (HTTPS) is required for PWA features
+- Clear browser cache after deployment
+
+### Slow Loading
+- Enable Gzip compression via cPanel or `.htaccess`
+- Ensure caching headers are set (included in `.htaccess`)
+
+---
+
+## 📁 Build Output Structure
+
+After running `npm run build`, the `dist` folder contains:
+
+```
+dist/
+├── index.html              # Main entry point
+├── .htaccess               # Apache routing rules
+├── favicon.ico             # App icon
+├── robots.txt              # Search engine rules
+├── manifest.webmanifest    # PWA manifest
+├── sw.js                   # Service worker
+├── workbox-*.js            # Workbox runtime
+└── assets/
+    ├── index-[hash].js     # Main JavaScript bundle
+    ├── index-[hash].css    # Main CSS bundle
+    └── [other chunks]      # Code-split chunks
+```
+
+---
+
+## 🛠 Development
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+```
+
+---
+
+## 📚 Technology Stack
+
+- **Frontend:** React 18, TypeScript, Vite
+- **Styling:** Tailwind CSS, shadcn/ui
+- **State Management:** TanStack Query
+- **Backend:** Supabase (Database, Auth, Storage)
+- **Charts:** Recharts
+- **PDF Generation:** jsPDF, jspdf-autotable
+- **PWA:** vite-plugin-pwa, Workbox
+
+---
+
+## 📄 License
+
+This project is proprietary software for YAROTECH.
