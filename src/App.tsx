@@ -13,6 +13,7 @@ import Products from "./pages/Products";
 import Settings from "./pages/Settings";
 import Audits from "./pages/Audits";
 import Analysis from "./pages/Analysis";
+import TaxTracking from "./pages/TaxTracking";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -79,6 +80,14 @@ const App = () => (
               element={
                 <AppLayout>
                   <Analysis />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/tax-tracking"
+              element={
+                <AppLayout>
+                  <TaxTracking />
                 </AppLayout>
               }
             />
