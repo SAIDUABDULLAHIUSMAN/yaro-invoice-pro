@@ -27,7 +27,6 @@ export const InvoiceForm = ({ onGenerateInvoice }: InvoiceFormProps) => {
   const [companyAddress, setCompanyAddress] = useState("Lagos, Nigeria");
   const [companyPhone, setCompanyPhone] = useState("+234 800 000 0000");
   const [customerName, setCustomerName] = useState("");
-  const [issuerName, setIssuerName] = useState("");
   const [products, setProducts] = useState<Product[]>([
     { id: "1", name: "", price: 0, quantity: 1 },
   ]);
@@ -124,15 +123,6 @@ export const InvoiceForm = ({ onGenerateInvoice }: InvoiceFormProps) => {
       return;
     }
 
-    if (!issuerName.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter issuer name",
-        variant: "destructive",
-      });
-      return;
-    }
-
     const validProducts = products.filter(
       (p) => p.name.trim() && p.price > 0 && p.quantity > 0
     );
@@ -154,7 +144,7 @@ export const InvoiceForm = ({ onGenerateInvoice }: InvoiceFormProps) => {
       companyAddress,
       companyPhone,
       customerName,
-      issuerName,
+      issuerName: user?.email || "Unknown",
       products: validProducts,
       date: new Date(),
       subtotal,
@@ -214,28 +204,16 @@ export const InvoiceForm = ({ onGenerateInvoice }: InvoiceFormProps) => {
             </div>
           </div>
 
-          {/* Customer & Issuer Info */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="customerName">Customer Name *</Label>
-              <Input
-                id="customerName"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="Enter customer name"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="issuerName">Invoice Issuer *</Label>
-              <Input
-                id="issuerName"
-                value={issuerName}
-                onChange={(e) => setIssuerName(e.target.value)}
-                placeholder="Enter your name"
-                required
-              />
-            </div>
+          {/* Customer Info */}
+          <div className="space-y-2">
+            <Label htmlFor="customerName">Customer Name *</Label>
+            <Input
+              id="customerName"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="Enter customer name"
+              required
+            />
           </div>
 
           {/* Products */}
