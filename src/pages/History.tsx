@@ -1,13 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { POSReceipt } from '@/components/POSReceipt';
 import { Invoice, Product } from '@/types/invoice';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { FileText, Printer, Trash2, Loader2 } from 'lucide-react';
-import { format } from 'date-fns';
+import { FileText, Printer, Trash2, Loader2, Search, X, Filter } from 'lucide-react';
+import { format, startOfDay, endOfDay, isWithinInterval, parseISO } from 'date-fns';
 import { printReceipt } from '@/utils/printReceipt';
 
 interface DBInvoice {
@@ -32,6 +35,13 @@ const History = () => {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const receiptRef = useRef<HTMLDivElement>(null);
 
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'total-desc' | 'total-asc'>('date-desc');
+  const [showFilters, setShowFilters] = useState(false);
+
   useEffect(() => {
     if (user) {
       fetchInvoices();
@@ -55,6 +65,66 @@ const History = () => {
     }
     setLoading(false);
   };
+
+  // Filtered and sorted invoices
+  const filteredInvoices = useMemo(() => {
+    let result = [...invoices];
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(inv => 
+        inv.invoice_number.toLowerCase().includes(query) ||
+        inv.customer_name.toLowerCase().includes(query) ||
+        inv.issuer_name.toLowerCase().includes(query)
+      );
+    }
+
+    // Date range filter
+    if (dateFrom || dateTo) {
+      result = result.filter(inv => {
+        const invoiceDate = parseISO(inv.created_at);
+        const from = dateFrom ? startOfDay(parseISO(dateFrom)) : null;
+        const to = dateTo ? endOfDay(parseISO(dateTo)) : null;
+
+        if (from && to) {
+          return isWithinInterval(invoiceDate, { start: from, end: to });
+        } else if (from) {
+          return invoiceDate >= from;
+        } else if (to) {
+          return invoiceDate <= to;
+        }
+        return true;
+      });
+    }
+
+    // Sorting
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case 'date-desc':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'date-asc':
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        case 'total-desc':
+          return Number(b.total) - Number(a.total);
+        case 'total-asc':
+          return Number(a.total) - Number(b.total);
+        default:
+          return 0;
+      }
+    });
+
+    return result;
+  }, [invoices, searchQuery, dateFrom, dateTo, sortBy]);
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setDateFrom('');
+    setDateTo('');
+    setSortBy('date-desc');
+  };
+
+  const hasActiveFilters = searchQuery || dateFrom || dateTo || sortBy !== 'date-desc';
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from('invoices').delete().eq('id', id);
@@ -104,20 +174,112 @@ const History = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Invoice History</h1>
-        <p className="text-muted-foreground">{invoices.length} invoices</p>
+        <p className="text-muted-foreground">
+          {filteredInvoices.length} of {invoices.length} invoices
+        </p>
       </div>
+
+      {/* Search and Filter Section */}
+      <Card>
+        <CardContent className="p-4 space-y-4">
+          {/* Search Bar */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by invoice #, customer, or issuer..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                onClick={() => setSearchQuery('')}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+
+          {/* Filter Toggle */}
+          <div className="flex items-center justify-between">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className="gap-2"
+            >
+              <Filter className="h-4 w-4" />
+              {showFilters ? 'Hide Filters' : 'Show Filters'}
+            </Button>
+
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                Clear all filters
+              </Button>
+            )}
+          </div>
+
+          {/* Expanded Filters */}
+          {showFilters && (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 pt-2 border-t">
+              <div className="space-y-2">
+                <Label htmlFor="date-from">From Date</Label>
+                <Input
+                  id="date-from"
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="date-to">To Date</Label>
+                <Input
+                  id="date-to"
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2 lg:col-span-2">
+                <Label htmlFor="sort-by">Sort By</Label>
+                <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+                  <SelectTrigger id="sort-by">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date-desc">Newest First</SelectItem>
+                    <SelectItem value="date-asc">Oldest First</SelectItem>
+                    <SelectItem value="total-desc">Highest Total</SelectItem>
+                    <SelectItem value="total-asc">Lowest Total</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-8 lg:grid-cols-[1fr_auto]">
         <div className="space-y-4">
-          {invoices.length === 0 ? (
+          {filteredInvoices.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">No invoices yet</p>
+                <p className="text-muted-foreground">
+                  {invoices.length === 0 ? 'No invoices yet' : 'No invoices match your search'}
+                </p>
+                {hasActiveFilters && (
+                  <Button variant="link" onClick={clearFilters} className="mt-2">
+                    Clear filters
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : (
-            invoices.map((inv) => (
+            filteredInvoices.map((inv) => (
               <Card
                 key={inv.id}
                 className={`cursor-pointer transition-colors hover:bg-muted/50 ${selectedInvoice?.id === inv.invoice_number ? 'ring-2 ring-primary' : ''}`}
