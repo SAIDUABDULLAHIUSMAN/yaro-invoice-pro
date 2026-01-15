@@ -2,9 +2,8 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, TrendingDown, Calendar, DollarSign } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths, eachDayOfInterval, eachWeekOfInterval } from "date-fns";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 
 interface SalesData {
@@ -33,102 +32,20 @@ const Analysis = () => {
 
   const fetchAnalytics = async () => {
     setLoading(true);
-    const now = new Date();
     
-    // Get data for the last 4 weeks
-    const fourWeeksAgo = subWeeks(now, 4);
-    const { data: recentInvoices } = await supabase
-      .from("invoices")
-      .select("created_at, total")
-      .eq("user_id", user!.id)
-      .gte("created_at", fourWeeksAgo.toISOString())
-      .order("created_at", { ascending: true });
-
-    // Get data for the last 6 months
-    const sixMonthsAgo = subMonths(now, 6);
-    const { data: monthlyInvoices } = await supabase
-      .from("invoices")
-      .select("created_at, total")
-      .eq("user_id", user!.id)
-      .gte("created_at", sixMonthsAgo.toISOString())
-      .order("created_at", { ascending: true });
-
-    if (recentInvoices) {
-      // Process weekly data (daily breakdown for current week)
-      const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-      const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-      const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
+    try {
+      const data = await api.getAnalysisData();
       
-      const dailyData = days.map(day => {
-        const dayStr = format(day, "yyyy-MM-dd");
-        const dayInvoices = recentInvoices.filter(inv => 
-          format(new Date(inv.created_at), "yyyy-MM-dd") === dayStr
-        );
-        return {
-          date: format(day, "EEE"),
-          total: dayInvoices.reduce((sum, inv) => sum + Number(inv.total), 0),
-          count: dayInvoices.length,
-        };
+      setWeeklyData(data.weeklyData);
+      setMonthlyData(data.monthlyData);
+      setStats({
+        thisWeekTotal: data.thisWeekTotal,
+        lastWeekTotal: data.lastWeekTotal,
+        thisMonthTotal: data.thisMonthTotal,
+        lastMonthTotal: data.lastMonthTotal,
       });
-      setWeeklyData(dailyData);
-
-      // Calculate this week vs last week
-      const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
-      const lastWeekStart = subWeeks(thisWeekStart, 1);
-      const lastWeekEnd = endOfWeek(lastWeekStart, { weekStartsOn: 1 });
-
-      const thisWeekTotal = recentInvoices
-        .filter(inv => new Date(inv.created_at) >= thisWeekStart)
-        .reduce((sum, inv) => sum + Number(inv.total), 0);
-
-      const lastWeekTotal = recentInvoices
-        .filter(inv => {
-          const date = new Date(inv.created_at);
-          return date >= lastWeekStart && date <= lastWeekEnd;
-        })
-        .reduce((sum, inv) => sum + Number(inv.total), 0);
-
-      setStats(prev => ({ ...prev, thisWeekTotal, lastWeekTotal }));
-    }
-
-    if (monthlyInvoices) {
-      // Process monthly data (weekly breakdown)
-      const weeks = eachWeekOfInterval({ 
-        start: subMonths(now, 3), 
-        end: now 
-      }, { weekStartsOn: 1 });
-
-      const weeklyAggregated = weeks.map(weekStart => {
-        const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
-        const weekInvoices = monthlyInvoices.filter(inv => {
-          const date = new Date(inv.created_at);
-          return date >= weekStart && date <= weekEnd;
-        });
-        return {
-          date: format(weekStart, "MMM d"),
-          total: weekInvoices.reduce((sum, inv) => sum + Number(inv.total), 0),
-          count: weekInvoices.length,
-        };
-      });
-      setMonthlyData(weeklyAggregated);
-
-      // Calculate this month vs last month
-      const thisMonthStart = startOfMonth(now);
-      const lastMonthStart = startOfMonth(subMonths(now, 1));
-      const lastMonthEnd = endOfMonth(subMonths(now, 1));
-
-      const thisMonthTotal = monthlyInvoices
-        .filter(inv => new Date(inv.created_at) >= thisMonthStart)
-        .reduce((sum, inv) => sum + Number(inv.total), 0);
-
-      const lastMonthTotal = monthlyInvoices
-        .filter(inv => {
-          const date = new Date(inv.created_at);
-          return date >= lastMonthStart && date <= lastMonthEnd;
-        })
-        .reduce((sum, inv) => sum + Number(inv.total), 0);
-
-      setStats(prev => ({ ...prev, thisMonthTotal, lastMonthTotal }));
+    } catch (error) {
+      console.error('Failed to fetch analytics:', error);
     }
 
     setLoading(false);

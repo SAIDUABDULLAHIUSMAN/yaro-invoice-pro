@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { api, Invoice as APIInvoice } from '@/lib/api';
 import { POSReceipt } from '@/components/POSReceipt';
 import { Invoice, Product } from '@/types/invoice';
 import { Button } from '@/components/ui/button';
@@ -49,19 +49,25 @@ const History = () => {
   }, [user]);
 
   const fetchInvoices = async () => {
-    const { data, error } = await supabase
-      .from('invoices')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      toast.error('Failed to load invoices');
-    } else {
-      const mapped = (data || []).map(d => ({
-        ...d,
-        products: d.products as unknown as Product[]
+    try {
+      const data = await api.getInvoices();
+      const mapped = data.map(inv => ({
+        id: inv.id,
+        invoice_number: inv.invoice_number,
+        company_name: inv.company_name,
+        company_address: inv.company_address || null,
+        company_phone: inv.company_phone || null,
+        customer_name: inv.customer_name,
+        issuer_name: inv.issuer_name,
+        subtotal: inv.subtotal,
+        tax: inv.tax,
+        total: inv.total,
+        products: inv.products as unknown as Product[],
+        created_at: inv.created_at,
       })) as DBInvoice[];
       setInvoices(mapped);
+    } catch (error) {
+      toast.error('Failed to load invoices');
     }
     setLoading(false);
   };
@@ -127,13 +133,13 @@ const History = () => {
   const hasActiveFilters = searchQuery || dateFrom || dateTo || sortBy !== 'date-desc';
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from('invoices').delete().eq('id', id);
-    if (error) {
-      toast.error('Failed to delete invoice');
-    } else {
+    try {
+      await api.deleteInvoice(id);
       toast.success('Invoice deleted');
       setInvoices(invoices.filter(inv => inv.id !== id));
       if (selectedInvoice?.id === id) setSelectedInvoice(null);
+    } catch (error) {
+      toast.error('Failed to delete invoice');
     }
   };
 

@@ -5,7 +5,7 @@ import { Invoice } from "@/types/invoice";
 import { Button } from "@/components/ui/button";
 import { Printer, X, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { printReceipt } from "@/utils/printReceipt";
 
@@ -21,38 +21,33 @@ const CreateSale = () => {
     if (user) {
       setSaving(true);
       
-      // Deduct stock for each product using atomic RPC function
-      for (const product of newInvoice.products) {
-        if (product.id !== 'custom') {
-          const { error } = await supabase.rpc('decrement_stock', {
-            product_id: product.id,
-            qty: product.quantity
-          });
-          if (error) console.error('Stock deduction error:', error);
-        }
-      }
-
-      const { error } = await supabase.from("invoices").insert({
-        user_id: user.id,
-        invoice_number: newInvoice.id,
-        company_name: newInvoice.companyName,
-        company_address: newInvoice.companyAddress || null,
-        company_phone: newInvoice.companyPhone || null,
-        customer_name: newInvoice.customerName,
-        issuer_name: newInvoice.issuerName,
-        subtotal: newInvoice.subtotal,
-        tax: newInvoice.tax,
-        total: newInvoice.total,
-        products: newInvoice.products as unknown,
-      } as never);
-      setSaving(false);
-
-      if (error) {
+      try {
+        // Create invoice via API (stock decrement happens on backend)
+        await api.createInvoice({
+          invoice_number: newInvoice.id,
+          company_name: newInvoice.companyName,
+          company_address: newInvoice.companyAddress,
+          company_phone: newInvoice.companyPhone,
+          customer_name: newInvoice.customerName,
+          issuer_name: newInvoice.issuerName,
+          subtotal: newInvoice.subtotal,
+          tax: newInvoice.tax,
+          total: newInvoice.total,
+          products: newInvoice.products.map(p => ({
+            id: p.id,
+            name: p.name,
+            price: p.price,
+            quantity: p.quantity
+          })),
+        });
+        
+        toast.success("Invoice saved to history");
+      } catch (error) {
         console.error("Failed to save invoice:", error);
         toast.error("Failed to save invoice to history");
-      } else {
-        toast.success("Invoice saved to history");
       }
+      
+      setSaving(false);
     }
   };
 
