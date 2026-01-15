@@ -1,17 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { Receipt, TrendingUp, Calendar, DollarSign } from 'lucide-react';
-import { format, startOfYear, endOfYear, getQuarter, getMonth } from 'date-fns';
 
 interface TaxData {
   month: string;
-  monthNum: number;
   tax: number;
   sales: number;
   invoiceCount: number;
@@ -37,112 +35,33 @@ const TaxTracking = () => {
 
   useEffect(() => {
     if (user) {
-      fetchAvailableYears();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (user && selectedYear) {
       fetchTaxData();
     }
   }, [user, selectedYear]);
 
-  const fetchAvailableYears = async () => {
-    const { data } = await supabase
-      .from('invoices')
-      .select('created_at')
-      .eq('user_id', user?.id)
-      .order('created_at', { ascending: true });
-
-    if (data && data.length > 0) {
-      const years = [...new Set(data.map(inv => new Date(inv.created_at).getFullYear().toString()))];
-      setAvailableYears(years);
-      if (!years.includes(selectedYear)) {
-        setSelectedYear(years[years.length - 1]);
-      }
-    } else {
-      setAvailableYears([new Date().getFullYear().toString()]);
-    }
-  };
-
   const fetchTaxData = async () => {
     setLoading(true);
-    const yearNum = parseInt(selectedYear);
-    const yearStart = startOfYear(new Date(yearNum, 0, 1));
-    const yearEnd = endOfYear(new Date(yearNum, 0, 1));
-
-    const { data } = await supabase
-      .from('invoices')
-      .select('tax, total, subtotal, created_at')
-      .eq('user_id', user?.id)
-      .gte('created_at', yearStart.toISOString())
-      .lte('created_at', yearEnd.toISOString());
-
-    if (data) {
-      // Process monthly data
-      const monthlyMap = new Map<number, { tax: number; sales: number; count: number }>();
+    
+    try {
+      const data = await api.getTaxData(parseInt(selectedYear));
       
-      for (let i = 0; i < 12; i++) {
-        monthlyMap.set(i, { tax: 0, sales: 0, count: 0 });
-      }
-
-      let totalTax = 0;
-      let totalSales = 0;
-
-      data.forEach(invoice => {
-        const month = getMonth(new Date(invoice.created_at));
-        const current = monthlyMap.get(month)!;
-        current.tax += Number(invoice.tax) || 0;
-        current.sales += Number(invoice.total) || 0;
-        current.count += 1;
-        totalTax += Number(invoice.tax) || 0;
-        totalSales += Number(invoice.total) || 0;
+      setMonthlyData(data.monthlyData);
+      setQuarterlyData(data.quarterlyData);
+      setTotals({
+        tax: data.totalTax,
+        sales: data.totalSales,
+        invoices: data.totalInvoices,
       });
-
-      const monthly: TaxData[] = Array.from(monthlyMap.entries()).map(([month, values]) => ({
-        month: format(new Date(yearNum, month, 1), 'MMM'),
-        monthNum: month,
-        tax: values.tax,
-        sales: values.sales,
-        invoiceCount: values.count
-      }));
-
-      setMonthlyData(monthly);
-
-      // Process quarterly data
-      const quarterlyMap = new Map<number, { tax: number; sales: number; count: number }>();
-      for (let i = 1; i <= 4; i++) {
-        quarterlyMap.set(i, { tax: 0, sales: 0, count: 0 });
-      }
-
-      data.forEach(invoice => {
-        const quarter = getQuarter(new Date(invoice.created_at));
-        const current = quarterlyMap.get(quarter)!;
-        current.tax += Number(invoice.tax) || 0;
-        current.sales += Number(invoice.total) || 0;
-        current.count += 1;
-      });
-
-      const quarterly: QuarterlyData[] = Array.from(quarterlyMap.entries()).map(([q, values]) => ({
-        quarter: `Q${q}`,
-        tax: values.tax,
-        sales: values.sales,
-        invoiceCount: values.count
-      }));
-
-      setQuarterlyData(quarterly);
-      setTotals({ tax: totalTax, sales: totalSales, invoices: data.length });
+      setAvailableYears(data.availableYears.map(y => y.toString()));
+    } catch (error) {
+      console.error('Failed to fetch tax data:', error);
     }
 
     setLoading(false);
   };
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2
-    }).format(value);
+    return `₦${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const taxRate = totals.sales > 0 ? ((totals.tax / (totals.sales - totals.tax)) * 100).toFixed(2) : '0';
@@ -232,7 +151,7 @@ const TaxTracking = () => {
                     <BarChart data={monthlyData}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="month" className="text-xs" />
-                      <YAxis className="text-xs" tickFormatter={(v) => `$${v}`} />
+                      <YAxis className="text-xs" tickFormatter={(v) => `₦${v}`} />
                       <Tooltip
                         formatter={(value: number) => [formatCurrency(value), 'Tax']}
                         contentStyle={{

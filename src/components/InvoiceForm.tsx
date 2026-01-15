@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Product, Invoice } from "@/types/invoice";
 import { Plus, Trash2, Receipt } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 
 interface InvoiceFormProps {
@@ -40,15 +40,13 @@ export const InvoiceForm = ({ onGenerateInvoice }: InvoiceFormProps) => {
   }, [user]);
 
   const fetchProducts = async () => {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .order('name');
-    
-    if (!error && data) {
+    try {
+      const data = await api.getProducts();
       setCatalogProducts(data);
       const uniqueCategories = [...new Set(data.map(p => p.category))];
       setCategories(uniqueCategories.length > 0 ? uniqueCategories : ["Other"]);
+    } catch (error) {
+      console.error('Failed to fetch products:', error);
     }
   };
 
@@ -82,7 +80,7 @@ export const InvoiceForm = ({ onGenerateInvoice }: InvoiceFormProps) => {
       setProducts(
         products.map((p) =>
           p.id === productId
-            ? { ...p, name: catalogProduct.name, price: catalogProduct.price }
+            ? { ...p, id: catalogProduct.id, name: catalogProduct.name, price: catalogProduct.price }
             : p
         )
       );

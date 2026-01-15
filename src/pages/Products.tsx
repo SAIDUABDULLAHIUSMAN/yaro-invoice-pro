@@ -8,18 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Loader2, Save, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { api, Product } from "@/lib/api";
 import { toast } from "sonner";
 
 const categories = ["Internet", "Hardware", "Services", "Other"];
-
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  category: string;
-  stock: number;
-}
 
 const Products = () => {
   const { user } = useAuth();
@@ -41,15 +33,11 @@ const Products = () => {
   }, [user]);
 
   const fetchProducts = async () => {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .order('name');
-    
-    if (error) {
+    try {
+      const data = await api.getProducts();
+      setProducts(data);
+    } catch (error) {
       toast.error('Failed to load products');
-    } else {
-      setProducts(data || []);
     }
     setLoadingProducts(false);
   };
@@ -71,38 +59,31 @@ const Products = () => {
 
     setSaving(true);
 
-    if (editingId) {
-      const { error } = await supabase
-        .from('products')
-        .update({ name: name.trim(), price: parseFloat(price), stock: parseInt(stock) || 0, category })
-        .eq('id', editingId);
-
-      if (error) {
-        toast.error('Failed to update product');
-      } else {
-        toast.success('Product updated');
-        fetchProducts();
-        resetForm();
-      }
-    } else {
-      const { error } = await supabase
-        .from('products')
-        .insert({ 
-          user_id: user!.id, 
-          name: name.trim(), 
+    try {
+      if (editingId) {
+        await api.updateProduct(editingId, {
+          name: name.trim(),
           price: parseFloat(price),
           stock: parseInt(stock) || 0,
-          category 
+          category
         });
-
-      if (error) {
-        toast.error(error.message.includes('duplicate') ? 'Product already exists' : 'Failed to add product');
+        toast.success('Product updated');
       } else {
+        await api.createProduct({
+          name: name.trim(),
+          price: parseFloat(price),
+          stock: parseInt(stock) || 0,
+          category
+        });
         toast.success('Product added');
-        fetchProducts();
-        resetForm();
       }
+      fetchProducts();
+      resetForm();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Operation failed';
+      toast.error(message.includes('exists') ? 'Product already exists' : message);
     }
+    
     setSaving(false);
   };
 
@@ -115,12 +96,12 @@ const Products = () => {
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from('products').delete().eq('id', id);
-    if (error) {
-      toast.error('Failed to delete product');
-    } else {
+    try {
+      await api.deleteProduct(id);
       toast.success('Product deleted');
       fetchProducts();
+    } catch (error) {
+      toast.error('Failed to delete product');
     }
   };
 

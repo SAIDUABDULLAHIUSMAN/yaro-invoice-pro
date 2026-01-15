@@ -5,7 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ShoppingCart, Package, FileText, TrendingUp, AlertTriangle, Bell, X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 
 interface LowStockProduct {
@@ -34,19 +34,20 @@ const Dashboard = () => {
   }, [user]);
 
   const fetchStats = async () => {
-    const [invoicesRes, productsRes] = await Promise.all([
-      supabase.from("invoices").select("total").eq("user_id", user!.id),
-      supabase.from("products").select("id, name, stock, category").eq("user_id", user!.id),
-    ]);
-
-    const products = productsRes.data || [];
-    const totalSales = invoicesRes.data?.reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
-    const totalProducts = products.length;
-    const totalInvoices = invoicesRes.data?.length || 0;
-    const lowStockItems = products.filter((p) => (p.stock || 0) < 10);
-
-    setStats({ totalSales, totalProducts, totalInvoices, lowStock: lowStockItems.length });
-    setLowStockProducts(lowStockItems.sort((a, b) => (a.stock || 0) - (b.stock || 0)));
+    try {
+      const dashboardStats = await api.getDashboardStats();
+      
+      setStats({
+        totalSales: dashboardStats.totalSales,
+        totalProducts: dashboardStats.totalProducts,
+        totalInvoices: dashboardStats.totalInvoices,
+        lowStock: dashboardStats.lowStockCount,
+      });
+      
+      setLowStockProducts(dashboardStats.lowStockProducts);
+    } catch (error) {
+      console.error('Failed to fetch dashboard stats:', error);
+    }
   };
 
   const cards = [

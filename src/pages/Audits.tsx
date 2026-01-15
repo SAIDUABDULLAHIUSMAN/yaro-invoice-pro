@@ -8,7 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ClipboardList, Loader2, Download, CalendarIcon, FileText } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -38,34 +38,32 @@ const Audits = () => {
 
   const fetchAudits = async () => {
     setLoading(true);
-    let query = supabase
-      .from("invoices")
-      .select("*")
-      .eq("user_id", user!.id)
-      .order("created_at", { ascending: false });
-
-    if (fromDate) {
-      query = query.gte("created_at", format(fromDate, "yyyy-MM-dd"));
-    }
-    if (toDate) {
-      const endOfDay = new Date(toDate);
-      endOfDay.setHours(23, 59, 59, 999);
-      query = query.lte("created_at", endOfDay.toISOString());
-    }
-
-    const { data, error } = await query.limit(500);
-
-    if (!error && data) {
+    
+    try {
+      const filters: { from?: string; to?: string; limit?: number } = { limit: 500 };
+      
+      if (fromDate) {
+        filters.from = format(fromDate, "yyyy-MM-dd");
+      }
+      if (toDate) {
+        filters.to = format(toDate, "yyyy-MM-dd");
+      }
+      
+      const data = await api.getInvoices(filters);
+      
       setAudits(data.map((inv) => ({
         id: inv.id,
         created_at: inv.created_at,
         invoice_number: inv.invoice_number,
         customer_name: inv.customer_name,
         issuer_name: inv.issuer_name,
-        total: Number(inv.total),
-        products: (inv.products as { name: string; quantity: number; price: number }[]) || [],
+        total: inv.total,
+        products: inv.products as unknown as { name: string; quantity: number; price: number }[],
       })));
+    } catch (error) {
+      console.error('Failed to fetch audits:', error);
     }
+    
     setLoading(false);
   };
 
